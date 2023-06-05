@@ -80,7 +80,7 @@ class MyAnimeListTracker: OAuthTracker {
     }
 
     func search(title: String) async -> [TrackSearchItem] {
-        (try? await api.search(query: title)?.data.concurrentMap { node -> TrackSearchItem in
+        (await api.search(query: title)?.data.concurrentMap { node -> TrackSearchItem in
             let details = await self.api.getMangaDetails(id: node.node.id)
             return TrackSearchItem(
                 id: String(node.node.id),
@@ -89,7 +89,8 @@ class MyAnimeListTracker: OAuthTracker {
                 coverUrl: details?.mainPicture?.large,
                 description: details?.synopsis,
                 status: self.getPublishingStatus(statusString: details?.status ?? ""),
-                type: self.getMediaType(typeString: details?.mediaType ?? "")
+                type: self.getMediaType(typeString: details?.mediaType ?? ""),
+                tracked: details?.myListStatus != nil
             )
         }) ?? []
     }
@@ -141,9 +142,12 @@ private extension MyAnimeListTracker {
         case "unknown": return .unknown
         case "manga": return .manga
         case "novel": return .novel
+        case "light_novel": return .novel
         case "manhwa": return .manhwa
         case "manhua": return .manhua
         case "oel": return .oel
+        case "one_shot": return .oneShot
+        case "doujinshi": return .manga
         default: return .manga
         }
     }

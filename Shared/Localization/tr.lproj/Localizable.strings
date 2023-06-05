@@ -319,3 +319,13 @@
 "FIRST_ALTERNATIVE" = "Birinci Alternatif";
 "MIGRATE_%i_ITEMS?" = "%i Öğeyi Taşı?";
 "MIGRATE_ONE_ITEM?" = "1 Öğeyi Taşı?";
+"MIGRATE_SOURCES" = "Kaynakları Taşı";
+"START_MATCHING" = "Eşleştirmeye Başla";
+"UPLOAD_DATE" = "Yükleme Zamanı";
+"ALL_CHAPTERS_READ" = "Bütün Bölümleri Oku";
+"DEFAULT_READING_MODE" = "Varsayılan Okuma Modu";
+"TRACKING" = "İzleme";
+"PILLARBOX" = "Çerçeve";
+"PILLARBOX_AMOUNT" = "Çerçeve Boyutu";
+"PILLARBOX_ORIENTATION" = "Çerçeve Yönü";
+"BOTH" = "İkisi de";

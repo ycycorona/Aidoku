@@ -164,9 +164,7 @@ extension SourceManager {
     func addSourceList(url: URL) async -> Bool {
         guard !sourceLists.contains(url) else { return false }
 
-        if (try? await URLSession.shared.object(
-            from: url.appendingPathComponent("index.min.json")
-        ) as [ExternalSourceInfo]?) == nil {
+        if await loadSourceList(url: url) == nil {
             return false
         }
 
@@ -184,22 +182,18 @@ extension SourceManager {
 
     func clearSourceLists() {
         sourceLists = []
-        UserDefaults.standard.set([], forKey: "Browse.sourceLists")
+        UserDefaults.standard.set([URL](), forKey: "Browse.sourceLists")
         NotificationCenter.default.post(name: Notification.Name("updateSourceLists"), object: nil)
     }
 
     func loadSourceList(url: URL) async -> [ExternalSourceInfo]? {
-        if url.pathExtension == "json" {
+        if !url.pathExtension.isEmpty {
             return try? await URLSession.shared.object(
                 from: url
             ) as [ExternalSourceInfo]
         } else {
             if let sources = try? await URLSession.shared.object(
                 from: url.appendingPathComponent("index.min.json")
-            ) as [ExternalSourceInfo] {
-                return sources
-            } else if let sources = try? await URLSession.shared.object(
-                from: url.appendingPathComponent("index.json")
             ) as [ExternalSourceInfo] {
                 return sources
             } else {

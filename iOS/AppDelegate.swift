@@ -80,11 +80,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 "Library.lockLibrary": false,
 
                 "Library.defaultCategory": [""],
-                "Library.lockedCategories": [],
+                "Library.lockedCategories": [String](),
 
                 "Library.updateInterval": "daily",
                 "Library.skipTitles": ["hasUnread", "completed", "notStarted"],
-                "Library.excludedUpdateCategories": [],
+                "Library.excludedUpdateCategories": [String](),
                 "Library.updateOnlyOnWifi": true,
                 "Library.refreshMetadata": false,
 
@@ -95,13 +95,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 "History.lockHistoryTab": false,
 
-                "Reader.readingMode": "default",
+                "Reader.readingMode": "auto",
                 "Reader.skipDuplicateChapters": true,
                 "Reader.downsampleImages": true,
                 "Reader.saveImageOption": true,
-                "Reader.verticalInfiniteScroll": false,
                 "Reader.pagesToPreload": 2,
-                "Reader.pagedPageLayout": "auto"
+                "Reader.pagedPageLayout": "auto",
+                "Reader.verticalInfiniteScroll": true,
+                "Reader.pillarbox": false,
+                "Reader.pillarboxAmount": 15,
+                "Reader.pillarboxOrientation": "both"
             ]
         )
 
@@ -161,7 +164,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         case progress
     }
 
-    func showLoadingIndicator(style: LoadingStyle = .indefinite) {
+    func showLoadingIndicator(style: LoadingStyle = .indefinite, completion: (() -> Void)? = nil) {
         switch style {
         case .indefinite:
             loadingIndicator.startAnimating()
@@ -171,12 +174,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             loadingIndicator.isHidden = true
             progressView.isHidden = false
         }
-        visibleViewController?.present(loadingAlert, animated: true, completion: nil)
+        visibleViewController?.present(loadingAlert, animated: true, completion: completion)
     }
 
-    func hideLoadingIndicator() {
+    func hideLoadingIndicator(completion: (() -> Void)? = nil) {
         loadingAlert.dismiss(animated: true) {
             self.loadingIndicator.stopAnimating()
+            completion?()
         }
     }
 

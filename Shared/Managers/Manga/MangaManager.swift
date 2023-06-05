@@ -31,13 +31,25 @@ extension MangaManager {
                 }
             }
         }
-        await CoreDataManager.shared.addToLibrary(manga: manga, chapters: chapters)
-        // add to default category
-        if
-            let defaultCategory = UserDefaults.standard.stringArray(forKey: "Library.defaultCategory")?.first,
-            CoreDataManager.shared.hasCategory(title: defaultCategory)
-        {
-            await CoreDataManager.shared.addCategoriesToManga(sourceId: manga.sourceId, mangaId: manga.id, categories: [defaultCategory])
+        await CoreDataManager.shared.container.performBackgroundTask { context in
+            CoreDataManager.shared.addToLibrary(manga: manga, chapters: chapters, context: context)
+            // add to default category
+            if let defaultCategory = UserDefaults.standard.stringArray(forKey: "Library.defaultCategory")?.first {
+                let hasCategory = CoreDataManager.shared.hasCategory(title: defaultCategory, context: context)
+                if hasCategory {
+                    CoreDataManager.shared.addCategoriesToManga(
+                        sourceId: manga.sourceId,
+                        mangaId: manga.id,
+                        categories: [defaultCategory],
+                        context: context
+                    )
+                }
+            }
+            do {
+                try context.save()
+            } catch {
+                LogManager.logger.error("MangaManager.addToLibrary: \(error.localizedDescription)")
+            }
         }
         NotificationCenter.default.post(name: Notification.Name("addToLibrary"), object: manga)
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
@@ -73,6 +85,22 @@ extension MangaManager {
             }
         }
         NotificationCenter.default.post(name: Notification.Name("updateLibrary"), object: nil)
+    }
+}
+
+// MARK: - Category Managing
+extension MangaManager {
+
+    func setCategories(sourceId: String, mangaId: String, categories: [String]) async {
+        await CoreDataManager.shared.setMangaCategories(
+            sourceId: sourceId,
+            mangaId: mangaId,
+            categories: categories
+        )
+        NotificationCenter.default.post(
+            name: Notification.Name("updateMangaCategories"),
+            object: MangaInfo(mangaId: mangaId, sourceId: sourceId)
+        )
     }
 }
 
@@ -161,23 +189,23 @@ extension MangaManager {
     }
 
     /// Refresh manga objects in library.
-    func refreshLibrary(forceAll: Bool = false) async {
+    func refreshLibrary(category: String? = nil, forceAll: Bool = false) async {
         if libraryRefreshTask != nil {
             // wait for already running library refresh
             await libraryRefreshTask?.value
         } else {
             // spawn new library refresh
             libraryRefreshTask = Task {
-                await doLibraryRefresh(forceAll: forceAll)
+                await doLibraryRefresh(category: category, forceAll: forceAll)
                 libraryRefreshTask = nil
             }
             await libraryRefreshTask?.value
         }
     }
 
-    private func doLibraryRefresh(forceAll: Bool) async {
+    private func doLibraryRefresh(category: String?, forceAll: Bool) async {
         let allManga = await CoreDataManager.shared.container.performBackgroundTask { context in
-            CoreDataManager.shared.getLibraryManga(context: context).compactMap { $0.manga?.toManga() }
+            CoreDataManager.shared.getLibraryManga(category: category, context: context).compactMap { $0.manga?.toManga() }
         }
 
         // check if connected to wi-fi

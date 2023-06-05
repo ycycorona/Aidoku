@@ -59,7 +59,7 @@ actor DownloadTask: Identifiable {
             let chapter = Chapter(sourceId: download.sourceId, id: download.chapterId, mangaId: download.mangaId, title: nil, sourceOrder: -1)
 
             // if directory exists (chapter already downloaded) return
-            let directory = cache.directory(for: chapter)
+            let directory = await cache.directory(for: chapter)
             guard !directory.exists else {
                 downloads.removeFirst()
                 return await next()
@@ -83,10 +83,10 @@ actor DownloadTask: Identifiable {
 
     // perform download
     func download(_ downloadIndex: Int, from source: Source, to directory: URL) async {
-        guard downloads.count >= downloadIndex else { return }
+        guard !downloads.isEmpty && downloads.count >= downloadIndex else { return }
 
         let chapter = downloads[downloadIndex].toChapter()
-        let tmpDirectory = cache.directory(forSourceId: chapter.sourceId, mangaId: chapter.mangaId)
+        let tmpDirectory = await cache.directory(forSourceId: chapter.sourceId, mangaId: chapter.mangaId)
             .appendingSafePathComponent(".tmp_\(chapter.id)")
         tmpDirectory.createDirectory()
 
@@ -99,10 +99,10 @@ actor DownloadTask: Identifiable {
             )) ?? []
             downloads[downloadIndex].total = pages.count
         }
-        while currentPage < pages.count && running {
+        while !pages.isEmpty && currentPage < pages.count && running {
             downloads[downloadIndex].progress = currentPage + 1
-            await delegate?.downloadProgressChanged(download: getDownload(downloadIndex)!)
             let page = pages[currentPage]
+            await delegate?.downloadProgressChanged(download: getDownload(downloadIndex)!)
             let pageNumber = String(format: "%03d", page.index + 1) // XXX.png
             if let urlString = page.imageURL, let url = URL(string: urlString) {
                 var urlRequest = URLRequest(url: url)
@@ -113,7 +113,7 @@ actor DownloadTask: Identifiable {
                     }
                     if let body = request.body { urlRequest.httpBody = body }
                 }
-                if let data = try? await URLSession.shared.data(for: urlRequest) {
+                if let (data, _) = try? await URLSession.shared.data(for: urlRequest) {
                     try? data.write(to: tmpDirectory.appendingPathComponent(pageNumber).appendingPathExtension("png"))
                 }
             } else if let base64 = page.base64, let data = Data(base64Encoded: base64) {
@@ -126,7 +126,7 @@ actor DownloadTask: Identifiable {
 
         if currentPage == pages.count {
             if (try? FileManager.default.moveItem(at: tmpDirectory, to: directory)) != nil {
-                cache.add(chapter: chapter)
+                await cache.add(chapter: chapter)
             }
             downloads[downloadIndex].status = .finished
             await delegate?.downloadFinished(download: getDownload(downloadIndex)!)
@@ -167,11 +167,11 @@ actor DownloadTask: Identifiable {
                 currentPage = 0
             }
             // remove chapter tmp download directory
-            cache.directory(forSourceId: chapter.sourceId, mangaId: chapter.mangaId)
-                .appendingSafePathComponent(".tmp_\(chapter.id)")
-                .removeItem()
             let download = downloads[index]
             Task {
+                await cache.directory(forSourceId: chapter.sourceId, mangaId: chapter.mangaId)
+                    .appendingSafePathComponent(".tmp_\(chapter.id)")
+                    .removeItem()
                 await delegate?.downloadCancelled(download: download)
                 downloads.removeAll { $0 == download }
                 if wasRunning {
@@ -191,15 +191,15 @@ actor DownloadTask: Identifiable {
                 downloads.remove(at: i)
             }
             // remove cached tmp directories
-            for manga in manga {
-                cache.directory(forSourceId: manga.sourceId, mangaId: manga.id)
-                    .contents
-                    .filter { $0.lastPathComponent.hasPrefix(".tmp") }
-                    .forEach { $0.removeItem() }
-            }
-            pages = []
-            currentPage = 0
             Task {
+                for manga in manga {
+                    await cache.directory(forSourceId: manga.sourceId, mangaId: manga.id)
+                        .contents
+                        .filter { $0.lastPathComponent.hasPrefix(".tmp") }
+                        .forEach { $0.removeItem() }
+                }
+                pages = []
+                currentPage = 0
                 await delegate?.taskCancelled(task: self)
             }
         }
